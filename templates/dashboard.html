@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Emotion Analyzer</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Chart JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🎤 Voice Emotion Analyzer</h1>
+<div style="text-align:right; margin-bottom:15px;">
+
+    <button onclick="toggleDarkMode()" type="button">
+        🌙 Dark Mode
+    </button>
+
+</div>
+
+
+    <!-- Upload Box -->
+    <div class="upload-box">
+
+        <form action="/upload" method="POST"
+              enctype="multipart/form-data"
+              onsubmit="showLoader()">
+
+            <input type="file" name="file" required>
+            <br><br>
+
+            <button type="submit">Upload Voice</button>
+
+        </form>
+
+    </div>
+
+
+    <!-- ✅ Loader -->
+    <div id="loader" class="loader-box" style="display:none;">
+        <div class="spinner"></div>
+        <p>Analyzing voice... Please wait</p>
+    </div>
+{% if filename %}
+
+<h3>🎧 Audio Preview</h3>
+
+<audio controls>
+    <source src="/uploads/{{ filename }}" type="audio/wav">
+    Your browser does not support audio.
+</audio>
+
+<hr>
+
+{% endif %}
+
+
+    {% if text %}
+    <!-- Result -->
+    <div class="result-box">
+
+        <h3>📄 Result</h3>
+
+        <p><b>Text:</b> {{ text }}</p>
+        <p><b>Emotion:</b> {{ emotion }}</p>
+
+    </div>
+    {% endif %}
+
+
+    {% if timeline %}
+    <!-- Timeline -->
+
+    <h3>📊 Emotion Timeline</h3>
+
+    <table>
+        <tr>
+            <th>Time (sec)</th>
+            <th>Text</th>
+            <th>Emotion</th>
+        </tr>
+
+        {% for t in timeline %}
+        <tr>
+            <td>{{ t.start }} - {{ t.end }}</td>
+
+            <td>{{ t.text }}</td>
+
+            <td class="emotion-cell {{ t.emotion.split(' ')[0]|lower }}">
+                {{ t.emotion }}
+            </td>
+        </tr>
+        {% endfor %}
+
+    </table>
+    {% endif %}
+
+
+    {% if chart_data %}
+    <!-- Chart -->
+
+    <h3>📈 Emotion Chart</h3>
+
+    <canvas id="emotionChart"></canvas>
+
+    <script>
+        const data = {
+            labels: {{ chart_labels | safe }},
+            datasets: [{
+                label: "Emotion Frequency",
+                data: {{ chart_data | safe }},
+                backgroundColor: [
+                    "#4CAF50",
+                    "#2196F3",
+                    "#FFC107",
+                    "#FF5722",
+                    "#9C27B0"
+                ]
+            }]
+        };
+
+        new Chart(document.getElementById("emotionChart"), {
+            type: "bar",
+            data: data
+        });
+    </script>
+
+    {% endif %}
+
+</div>
+
+
+<script>
+function showLoader() {
+    document.getElementById("loader").style.display = "block";
+}
+</script>
+<script>
+function toggleDarkMode() {
+    document.body.classList.toggle("dark");
+
+    // Save preference
+    if (document.body.classList.contains("dark")) {
+        localStorage.setItem("theme", "dark");
+    } else {
+        localStorage.setItem("theme", "light");
+    }
+}
+
+// Load saved theme
+window.onload = function() {
+    if (localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark");
+    }
+}
+</script>
+
+</body>
+</html>

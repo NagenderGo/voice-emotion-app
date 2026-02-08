@@ -1,0 +1,97 @@
+/* Reset */
+* {
+    box-sizing: border-box;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Page Background */
+body {
+    margin: 0;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Card */
+.auth-card {
+    background: white;
+    width: 100%;
+    max-width: 400px;
+    padding: 35px 30px;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+    text-align: center;
+    animation: fadeIn 0.8s ease;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(25px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Title */
+.auth-card h2 {
+    margin-bottom: 25px;
+    color: #333;
+}
+
+/* Inputs */
+.auth-card input {
+    width: 100%;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+    transition: 0.3s;
+}
+
+.auth-card input:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(102,126,234,0.2);
+}
+
+/* Button */
+.auth-card button {
+    width: 100%;
+    padding: 12px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.auth-card button:hover {
+    background: #5563d6;
+    transform: translateY(-1px);
+}
+
+/* Links */
+.auth-card p {
+    margin-top: 18px;
+    font-size: 14px;
+}
+
+.auth-card a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.auth-card a:hover {
+    text-decoration: underline;
+}
