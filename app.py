@@ -1,18 +1,11 @@
-# ---------------- IMPORTS ----------------
-
-from flask import Flask, render_template, request, send_from_directory, redirect
+from flask import Flask, render_template, request, send_from_directory
 from werkzeug.utils import secure_filename
-
-from flask_login import (
-    LoginManager, UserMixin,
-    login_user, login_required,
-    logout_user, current_user
-)
 
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-import sqlite3
+from pydub import AudioSegment
+
 import os
 import speech_recognition as sr
 from textblob import TextBlob
@@ -21,7 +14,6 @@ from textblob import TextBlob
 # ---------------- APP CONFIG ----------------
 
 app = Flask(__name__)
-app.secret_key = "voice_emotion_secret"
 
 UPLOAD_FOLDER = "uploads"
 STATIC_FOLDER = "static"
@@ -32,136 +24,79 @@ os.makedirs(STATIC_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 
-# ---------------- LOGIN MANAGER ----------------
+# ---------------- AUDIO CONVERT ----------------
 
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
+def convert_to_wav(input_path):
 
+    output_path = input_path.rsplit(".", 1)[0] + ".wav"
 
-# ---------------- DATABASE ----------------
+    audio = AudioSegment.from_file(input_path)
+    audio = audio.set_channels(1)
+    audio = audio.set_frame_rate(16000)
 
-def init_db():
+    audio.export(output_path, format="wav")
 
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password TEXT
-    )
-    """)
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS reports(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        text TEXT,
-        emotion TEXT,
-        pdf_file TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    conn.commit()
-    conn.close()
+    return output_path
 
 
-init_db()
+# ---------------- EMOTION ----------------
+
+def detect_emotion(text):
+
+    blob = TextBlob(text)
+    polarity = blob.sentiment.polarity
+
+    if polarity > 0.2:
+        return "Happy 😊"
+
+    elif polarity < -0.2:
+        return "Sad 😢"
+
+    else:
+        return "Neutral 🙂"
 
 
-# ---------------- USER CLASS ----------------
+# ---------------- SPEECH ----------------
 
-class User(UserMixin):
+def recognize_speech(path):
 
-    def __init__(self, id, username):
-        self.id = id
-        self.username = username
+    r = sr.Recognizer()
 
+    with sr.AudioFile(path) as source:
+        audio = r.record(source)
 
-@login_manager.user_loader
-def load_user(user_id):
+    try:
+        return r.recognize_google(audio)
 
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
-
-    c.execute("SELECT * FROM users WHERE id=?", (user_id,))
-    user = c.fetchone()
-
-    conn.close()
-
-    if user:
-        return User(user[0], user[1])
-
-    return None
+    except:
+        return "Could not recognize speech"
 
 
-# ---------------- AUTH ROUTES ----------------
+# ---------------- TIMELINE ----------------
 
-@app.route("/register", methods=["GET", "POST"])
-def register():
+def split_timeline(text):
 
-    if request.method == "POST":
+    words = text.split()
+    timeline = []
 
-        username = request.form["username"]
-        password = request.form["password"]
+    start = 0
+    step = 3
 
-        conn = sqlite3.connect("users.db")
-        c = conn.cursor()
+    for i in range(0, len(words), 5):
 
-        try:
-            c.execute(
-                "INSERT INTO users (username,password) VALUES (?,?)",
-                (username, password)
-            )
-            conn.commit()
-        except:
-            conn.close()
-            return "Username already exists"
+        part = " ".join(words[i:i+5])
+        emo = detect_emotion(part)
 
-        conn.close()
+        timeline.append({
+            "start": start,
+            "end": start + step,
+            "text": part,
+            "emotion": emo
+        })
 
-        return redirect("/login")
+        start += step
 
-    return render_template("register.html")
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-
-    if request.method == "POST":
-
-        username = request.form["username"]
-        password = request.form["password"]
-
-        conn = sqlite3.connect("users.db")
-        c = conn.cursor()
-
-        c.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username, password)
-        )
-
-        user = c.fetchone()
-        conn.close()
-
-        if user:
-            login_user(User(user[0], user[1]))
-            return redirect("/")
-
-        return "Invalid Login"
-
-    return render_template("login.html")
-
-
-@app.route("/logout")
-@login_required
-def logout():
-
-    logout_user()
-    return redirect("/login")
+    return timeline
 
 
 # ---------------- PDF ----------------
@@ -210,66 +145,9 @@ def generate_pdf(text, emotion, timeline):
     return filename
 
 
-# ---------------- AI FUNCTIONS ----------------
-
-def detect_emotion(text):
-
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity
-
-    if polarity > 0.2:
-        return "Happy 😊"
-
-    elif polarity < -0.2:
-        return "Sad 😢"
-
-    else:
-        return "Neutral 🙂"
-
-
-def recognize_speech(path):
-
-    r = sr.Recognizer()
-
-    with sr.AudioFile(path) as source:
-        audio = r.record(source)
-
-    try:
-        return r.recognize_google(audio)
-
-    except:
-        return "Could not recognize speech"
-
-
-def split_timeline(text):
-
-    words = text.split()
-    timeline = []
-
-    start = 0
-    step = 3
-
-    for i in range(0, len(words), 5):
-
-        part = " ".join(words[i:i+5])
-        emo = detect_emotion(part)
-
-        timeline.append({
-            "start": start,
-            "end": start + step,
-            "text": part,
-            "emotion": emo
-        })
-
-        start += step
-
-    return timeline
-
-
-# ---------------- MAIN ROUTES ----------------
+# ---------------- MAIN ----------------
 
 @app.route("/")
-@login_required
 def home():
 
     return render_template("dashboard.html")
@@ -281,8 +159,9 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
+# ---------------- UPLOAD ----------------
+
 @app.route("/upload", methods=["POST"])
-@login_required
 def upload():
 
     file = request.files.get("file")
@@ -291,18 +170,25 @@ def upload():
         return render_template("dashboard.html", error="No file selected")
 
     try:
-
         # Save file
         filename = secure_filename(file.filename)
         path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(path)
 
-        # AI
+        # Convert to WAV if needed
+        if not path.lower().endswith(".wav"):
+            path = convert_to_wav(path)
+
+        # Speech to Text
         text = recognize_speech(path)
+
+        # Emotion
         emotion = detect_emotion(text)
+
+        # Timeline
         timeline = split_timeline(text)
 
-        # Chart
+        # Chart Data
         emotion_count = {}
 
         for t in timeline:
@@ -314,18 +200,6 @@ def upload():
 
         # PDF
         pdf_file = generate_pdf(text, emotion, timeline)
-
-        # Save to DB
-        conn = sqlite3.connect("users.db")
-        c = conn.cursor()
-
-        c.execute("""
-        INSERT INTO reports (user_id, text, emotion, pdf_file)
-        VALUES (?,?,?,?)
-        """, (current_user.id, text, emotion, pdf_file))
-
-        conn.commit()
-        conn.close()
 
         return render_template(
             "dashboard.html",
@@ -342,12 +216,18 @@ def upload():
 
         return render_template(
             "dashboard.html",
-            error=str(e)
+            error=f"Error: {str(e)}"
         )
 
 
 # ---------------- RUN ----------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
 
+if __name__ == "__main__":
+
+    port = int(os.environ.get("PORT", 5000))
+
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=True
+    )

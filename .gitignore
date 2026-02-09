@@ -1,0 +1,8 @@
+venv/
+users.db
+uploads/
+static/report.pdf
+Voice_Emotion_Project_Documentation.pdf
+make_pdf.py
+__pycache__/
+.vscode/
