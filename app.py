@@ -41,21 +41,6 @@ def convert_to_wav(input_path):
 
 # ---------------- EMOTION ----------------
 
-def detect_emotion(text):
-
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity
-
-    if polarity > 0.2:
-        return "Happy 😊"
-
-    elif polarity < -0.2:
-        return "Sad 😢"
-
-    else:
-        return "Neutral 🙂"
-
-
 # ---------------- SPEECH ----------------
 
 def recognize_speech(path):
@@ -71,6 +56,52 @@ def recognize_speech(path):
     except:
         return "Could not recognize speech"
 
+def detect_emotion(text):
+    
+    blob = TextBlob(text)
+
+    polarity = blob.sentiment.polarity      # -1 to +1
+    subjectivity = blob.sentiment.subjectivity  # 0 to 1
+
+    text = text.lower()
+
+    # Keyword based emotions (strong signals)
+    angry_words = ["angry", "hate", "annoyed", "furious", "irritated"]
+    fear_words = ["fear", "afraid", "scared", "panic", "worried"]
+    sad_words = ["sad", "cry", "upset", "depressed", "lonely"]
+    happy_words = ["happy", "great", "love", "excited", "awesome", "good"]
+
+    # Keyword detection
+    if any(word in text for word in angry_words):
+        return "Angry 😡"
+
+    if any(word in text for word in fear_words):
+        return "Fear 😨"
+
+    if any(word in text for word in sad_words):
+        return "Sad 😢"
+
+    if any(word in text for word in happy_words):
+        return "Happy 😊"
+
+    # Sentiment based detection
+    if polarity >= 0.5:
+        return "Very Happy 😄"
+
+    elif polarity >= 0.2:
+        return "Happy 🙂"
+
+    elif polarity <= -0.5:
+        return "Very Sad 😭"
+
+    elif polarity <= -0.2:
+        return "Sad 😞"
+
+    elif subjectivity >= 0.6:
+        return "Emotional 😔"
+
+    else:
+        return "Neutral 😐"
 
 # ---------------- TIMELINE ----------------
 
@@ -185,15 +216,15 @@ def upload():
         # Emotion
         emotion = detect_emotion(text)
 
-        # Timeline
         timeline = split_timeline(text)
 
-        # Chart Data
         emotion_count = {}
 
         for t in timeline:
-            emo = t["emotion"].split()[0]
-            emotion_count[emo] = emotion_count.get(emo, 0) + 1
+                emo = t["emotion"]
+                emotion_count[emo] = emotion_count.get(emo, 0) + 1
+
+        emotion = max(emotion_count, key=emotion_count.get)
 
         chart_labels = list(emotion_count.keys())
         chart_data = list(emotion_count.values())
